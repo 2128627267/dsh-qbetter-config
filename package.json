@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "dsh-better-config",
   "version": "1.0.0",
   "description": "Better config hub for DeepSeek Harness: one page showing sandbox mode, default model, workspaces, settings namespaces and copy-ready composition templates.",
@@ -10,5 +10,27 @@
   },
   "license": "MIT",
   "author": "qf",
-  "keywords": ["dsh-plugin", "dsh", "config", "settings", "hub"]
+  "keywords": [
+    "dsh-plugin",
+    "dsh",
+    "config",
+    "settings",
+    "hub"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<your-github>/dsh-better-config.git"
+  },
+  "homepage": "https://github.com/<your-github>/dsh-better-config#readme",
+  "bugs": {
+    "url": "https://github.com/<your-github>/dsh-better-config/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "host.js",
+    "client.js",
+    "README.md"
+  ]
 }
