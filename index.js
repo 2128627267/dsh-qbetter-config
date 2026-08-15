@@ -5,7 +5,6 @@ import { join } from 'node:path'
 export const name = 'dsh-qbetter-config'
 export const inject = []
 
-const DIR = '.dsh-features'
 const SECRET_KEYS = ['key', 'token', 'secret', 'password', 'credential']
 
 function readJsonBody(request) {
@@ -50,6 +49,15 @@ export async function apply(ctx) {
 
   let mcpServers = []
   let wish = { search: false, schedule: true }
+  let dshHome = process.env.DSH_HOME || ''
+  let workspaceRoot = process.cwd()
+
+  async function resolveBase() {
+    if (fsSvc) {
+      try { workspaceRoot = await fsSvc.resolve('.', {}) } catch { /* ignore */ }
+    }
+    if (!dshHome) dshHome = workspaceRoot
+  }
 
   function safeValue(value, depth) {
     if (depth > 4) return '[…]'
@@ -84,7 +92,8 @@ export async function apply(ctx) {
   }
 
   async function loadAll() {
-    const saved = await readJson(join(DIR, 'config.json'))
+    await resolveBase()
+    const saved = await readJson(join(dshHome, '.dsh-features', 'config.json'))
     if (saved && typeof saved === 'object') {
       if (Array.isArray(saved.mcpServers)) mcpServers = saved.mcpServers
       if (saved.wish && typeof saved.wish === 'object') wish = Object.assign(wish, saved.wish)
@@ -135,7 +144,7 @@ export async function apply(ctx) {
   }
 
   async function configStatus() {
-    const featureCfg = await readJson(join(DIR, 'config.json'))
+    const featureCfg = await readJson(join(dshHome, '.dsh-features', 'config.json'))
     let settingsList = []
     if (settingsSvc && typeof settingsSvc.describe === 'function') {
       try {
@@ -207,8 +216,12 @@ export async function apply(ctx) {
       if (!serverName) return { error: 'serverName 必填' }
       const transport = raw.transport === 'stdio' ? 'stdio' : 'streamable-http'
       let headers = raw.headers
-      if (typeof headers === 'string' && headers.trim()) {
-        try { headers = JSON.parse(headers) } catch { return { error: 'headers 必须是合法 JSON 对象' } }
+      if (typeof headers === 'string') {
+        const trimmed = headers.trim()
+        if (!trimmed) headers = undefined
+        else {
+          try { headers = JSON.parse(trimmed) } catch { return { error: 'headers 必须是合法 JSON 对象' } }
+        }
       }
       if (headers !== undefined && headers !== null && (typeof headers !== 'object' || Array.isArray(headers))) return { error: 'headers 必须是 JSON 对象' }
       const server = {
@@ -223,18 +236,18 @@ export async function apply(ctx) {
       const index = mcpServers.findIndex((item) => item.serverName === serverName)
       if (index >= 0) mcpServers[index] = server
       else mcpServers.push(server)
-      await writeJson(join(DIR, 'config.json'), { mcpServers, wish })
+      await writeJson(join(dshHome, '.dsh-features', 'config.json'), { mcpServers, wish })
       return mcpServers.map((item) => ({ ...item }))
     },
     'mcp/delete': async (args) => {
       mcpServers = mcpServers.filter((item) => item.serverName !== (args && args.serverName))
-      await writeJson(join(DIR, 'config.json'), { mcpServers, wish })
+      await writeJson(join(dshHome, '.dsh-features', 'config.json'), { mcpServers, wish })
       return mcpServers.map((item) => ({ ...item }))
     },
     wish: async (args) => {
       if (typeof (args && args.search) === 'boolean') wish.search = args.search
       if (typeof (args && args.schedule) === 'boolean') wish.schedule = args.schedule
-      await writeJson(join(DIR, 'config.json'), { mcpServers, wish })
+      await writeJson(join(dshHome, '.dsh-features', 'config.json'), { mcpServers, wish })
       return { ...wish, patch: generatePatch() }
     },
     patch: async () => generatePatch(),
