@@ -1,189 +1,263 @@
-// AUTO-GENERATED bundle bootstrap for dsh-better-config.
-// Edit host.js/client.js, then regenerate with: node scripts/convert-to-bundle.js <pluginDir>
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+// dsh-better-config — native DSH bundle host half.
+// Standard Cordis plugin: config hub HTTP JSON endpoints.
+export const name = 'dsh-better-config'
+export const inject = []
 
-const PKG_DIR = fileURLToPath(new URL('.', import.meta.url))
-const PLUGIN_NAME = "dsh-better-config"
-const ID_PREFIX = "qbcfg"
-const PURPOSE = "Better config hub for DeepSeek Harness: one page showing sandbox mode, default model, workspaces, settings namespaces and copy-ready composition templates."
-const HOST_FILE = "host.js"
-const CLIENT_FILE = "client.js"
+const DIR = '.dsh-features'
+const SECRET_KEYS = ['key', 'token', 'secret', 'password', 'credential']
 
-export const name = PLUGIN_NAME
-export const inject = ['dynamicCordisRunner', 'agents']
-
-function log(ctx, message) {
-  try {
-    if (ctx?.logger?.info) ctx.logger.info(`[${PLUGIN_NAME}] ${message}`)
-    else if (ctx?.logger?.warn) ctx.logger.warn(`[${PLUGIN_NAME}] ${message}`)
-  } catch { /* ignore */ }
-}
-
-function rootAgents(agents) {
-  try { return typeof agents?.roots === 'function' ? agents.roots() : [] } catch { return [] }
-}
-
-function archivedSet(workspaceSvc) {
-  const archived = new Set()
-  try {
-    for (const id of workspaceSvc?.archivedSessionIds ?? []) archived.add(String(id))
-  } catch { /* ignore */ }
-  return archived
-}
-
-function workspaceKeyOf(sessionId, workspaceSvc) {
-  try {
-    for (const ws of workspaceSvc?.list?.() ?? []) {
-      if ((ws?.sessionIds ?? []).some((id) => String(id) === String(sessionId))) {
-        return String(ws?.id ?? ws?.path ?? 'default')
+function readJsonBody(request) {
+  return new Promise((resolve, reject) => {
+    let data = ''
+    request.on('data', (chunk) => {
+      data += chunk
+      if (data.length > 1024 * 1024) {
+        reject(new Error('request body too large'))
+        request.destroy()
       }
-    }
-  } catch { /* ignore */ }
-  return 'default'
+    })
+    request.on('end', () => {
+      try { resolve(data ? JSON.parse(data) : {}) } catch (error) { reject(error) }
+    })
+    request.on('error', reject)
+  })
 }
 
-/**
- * One bootstrap target per workspace (or one total when the workspace service
- * is unavailable): the newest non-archived root session. Restoring every root
- * used to duplicate each bundle in every old session and made tool names
- * (kb_search / rules_read / browser_open) collide across those duplicates.
- */
-function startupTargets(agents, workspaceSvc) {
-  const roots = rootAgents(agents)
-  if (roots.length === 0) return []
-  const archived = archivedSet(workspaceSvc)
-  const live = roots.filter((agent) => agent?.session?.id && !archived.has(String(agent.session.id)))
-  const candidates = live.length > 0 ? live : roots
-  const groups = new Map()
-  for (const agent of candidates) {
-    const key = workspaceKeyOf(agent.session.id, workspaceSvc)
-    const list = groups.get(key) ?? []
-    list.push(agent)
-    groups.set(key, list)
-  }
-  return [...groups.values()].map((list) => list.reduce((newest, agent) => {
-    const a = Number(newest?.session?.createdAt ?? 0)
-    const b = Number(agent?.session?.createdAt ?? 0)
-    return b > a ? agent : newest
-  }, list[0])).filter(Boolean)
-}
-
-function isStartupTarget(agent, agents, workspaceSvc) {
+function sameOrigin(request) {
   try {
-    return startupTargets(agents, workspaceSvc).some((candidate) => candidate === agent
-      || candidate?.id !== undefined && candidate.id === agent?.id)
+    const origin = request.headers.origin
+    if (!origin) return true
+    return new URL(origin).host === request.headers.host
   } catch { return false }
 }
 
-function isArchived(agent, workspaceSvc) {
-  if (!agent?.session?.id || !workspaceSvc?.archivedSessionIds) return false
-  try { return workspaceSvc.archivedSessionIds.some((id) => String(id) === String(agent.session.id)) } catch { return false }
-}
-
-function existingPlugin(runner, sessionId) {
-  try {
-    if (typeof runner?.registry?.all !== 'function') return undefined
-    return runner.registry.all().find((plugin) => plugin?.sessionId === sessionId
-      && [...(plugin.packages?.values?.() ?? [])].some((definition) => definition?.name === PLUGIN_NAME))
-  } catch { return undefined }
-}
-
-function latestPackage(plugin) {
-  const candidates = [...(plugin?.packages?.values?.() ?? [])].filter((definition) => definition?.name === PLUGIN_NAME)
-  return candidates[candidates.length - 1]
-}
-
-function preApprove(plugin, packageId) {
-  try {
-    plugin?.approvedClientPackages?.add?.(packageId)
-    if (plugin && 'clientVersionUpdatesApproved' in plugin) plugin.clientVersionUpdatesApproved = true
-  } catch { /* ignore */ }
-}
-
-async function activate(runner, agent, plugin, packageId) {
-  // Pre-authorize the exact installed package, then arm the STANDARD run
-  // request and return. The browser-side client-loader owns both halves from
-  // here: it reconciles the request (runHostHalf), loads the client half and
-  // settles activation. Calling runHostHalf immediately on the host used to
-  // race that reconcile and produced "run request no longer identifies the
-  // latest run" failures.
-  preApprove(plugin, packageId)
-  const mode = plugin?.currentPackageId !== undefined && plugin.currentPackageId !== packageId ? 'update' : 'run'
-  if (typeof runner?.run === 'function') {
-    return await runner.run(agent, plugin.pluginId, packageId, mode)
-  }
-  return await runner?.runHostHalf?.(agent, plugin.pluginId, packageId, mode, null, false)
+function sendJson(response, status, value) {
+  response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
+  response.end(JSON.stringify(value))
 }
 
 export async function apply(ctx) {
-  try {
-    const runner = ctx.get('dynamicCordisRunner')
-    const agents = ctx.get('agents')
-    if (!runner || !agents) { log(ctx, 'skip: dynamicCordisRunner/agents unavailable'); return }
+  const get = (key) => {
+    try { return ctx.get(key) } catch { return undefined }
+  }
+  const settingsSvc = get('settings')
+  const sandboxPolicy = get('sandboxPolicy')
+  const agentDefaultModel = get('agentDefaultModel')
+  const wr = get('workspaceRegistry')
+  const fsSvc = get('fs')
 
-    const hostCode = HOST_FILE ? readFileSync(join(PKG_DIR, HOST_FILE), 'utf8') : undefined
-    const clientCode = CLIENT_FILE ? readFileSync(join(PKG_DIR, CLIENT_FILE), 'utf8') : undefined
-    const code = {}
-    if (hostCode !== undefined) code.host = hostCode
-    if (clientCode !== undefined) code.client = clientCode
-    if (Object.keys(code).length === 0) { log(ctx, 'skip: no host/client source'); return }
+  let mcpServers = []
+  let wish = { search: false, schedule: true }
 
-    const workspaceSvc = typeof ctx.get === 'function' ? ctx.get('workspace') : undefined
-    const busy = new Set()
-    async function ensureForAgent(agent) {
-      if (!agent?.session?.id) return
-      const roots = rootAgents(agents)
-      if (!roots.some((candidate) => candidate === agent || candidate?.id === agent?.id)) return
-      const sessionId = agent.session.id
-      if (busy.has(sessionId)) return
-      busy.add(sessionId)
-      try {
-        let plugin = existingPlugin(runner, sessionId)
-        let packageId
-        if (plugin) {
-          if (plugin.run !== undefined) { log(ctx, `session ${sessionId}: already running`); return }
-          packageId = latestPackage(plugin)?.packageId
-          if (!packageId) { log(ctx, `session ${sessionId}: no package to run`); return }
-        } else {
-          const defined = runner.define({
-            sessionId,
-            name: PLUGIN_NAME,
-            purpose: PURPOSE,
-            plugin: { kind: 'new', idPrefix: ID_PREFIX },
-            code,
-          })
-          if (!defined?.pluginId) { log(ctx, 'define returned no pluginId'); return }
-          packageId = defined.packageId
-          plugin = typeof runner.registry?.get === 'function' ? runner.registry.get(defined.pluginId) : undefined
-          if (!plugin) plugin = existingPlugin(runner, sessionId)
+  function safeValue(value, depth) {
+    if (depth > 4) return '[…]'
+    if (value === null || value === undefined) return value
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+    if (Array.isArray(value)) return value.slice(0, 20).map((item) => safeValue(item, depth + 1))
+    if (typeof value === 'object') {
+      const out = {}
+      for (const key of Object.keys(value).slice(0, 30)) {
+        if (SECRET_KEYS.some((s) => key.toLowerCase().includes(s))) { out[key] = '***'; continue }
+        out[key] = safeValue(value[key], depth + 1)
+      }
+      return out
+    }
+    return String(value)
+  }
+
+  async function readJson(rel) {
+    try {
+      if (!fsSvc) return null
+      const target = await fsSvc.resolve(rel, {})
+      return JSON.parse(await fsSvc.readText(target))
+    } catch { return null }
+  }
+  async function writeJson(rel, value) {
+    if (!fsSvc) return false
+    try {
+      const target = await fsSvc.resolve(rel, {})
+      await fsSvc.writeText(target, JSON.stringify(value, null, 2))
+      return true
+    } catch { return false }
+  }
+
+  async function loadAll() {
+    const saved = await readJson(DIR + '/config.json')
+    if (saved && typeof saved === 'object') {
+      if (Array.isArray(saved.mcpServers)) mcpServers = saved.mcpServers
+      if (saved.wish && typeof saved.wish === 'object') wish = Object.assign(wish, saved.wish)
+    }
+  }
+  await loadAll().catch(() => {})
+
+  function yamlStr(value) {
+    const s = String(value)
+    return /[:#\s,{}[\]]/.test(s) ? JSON.stringify(s) : s
+  }
+
+  function generatePatch() {
+    const lines = ['# 由 dsh-better-config 生成的组合补丁（贴入 profiles/web/cordis.patch.yml，重启生效）', '- insert:']
+    if (wish.schedule) {
+      lines.push("    - id: schedule")
+      lines.push("      name: '@deepseek-ai/dsh-schedule'")
+    }
+    for (const server of mcpServers) {
+      if (!server || !server.serverName) continue
+      lines.push("    - id: mcp-" + yamlStr(server.serverName))
+      lines.push("      name: '@deepseek-ai/dsh-mcp-client'")
+      lines.push('      config:')
+      lines.push('        serverName: ' + yamlStr(server.serverName))
+      if (server.transport === 'stdio') {
+        lines.push('        transport: stdio')
+        lines.push('        command: ' + yamlStr(server.command || 'npx'))
+        if (server.args) lines.push('        args: ' + JSON.stringify(String(server.args).split(',').map((x) => x.trim()).filter(Boolean)))
+      } else {
+        lines.push('        transport: streamable-http')
+        lines.push('        url: ' + yamlStr(server.url || 'https://example.com/mcp'))
+        if (server.headers) {
+          try { lines.push('        headers: ' + JSON.stringify(JSON.parse(server.headers))) } catch { /* ignore */ }
         }
-        if (!plugin) { log(ctx, 'plugin record unavailable after define'); return }
-        const result = await activate(runner, agent, plugin, packageId)
-        log(ctx, `session ${sessionId} plugin=${plugin.pluginId} -> ${JSON.stringify(result)}`)
-      } catch (error) {
-        log(ctx, `session restore failed: ${error?.message || error}`)
-      } finally {
-        busy.delete(sessionId)
       }
     }
-
-    // Register first so an agent created during startup is not missed.
-    try {
-      ctx.on('agent/created', (payload) => {
-        const agent = payload?.agent
-        if (!agent || isArchived(agent, workspaceSvc)) return
-        if (!isStartupTarget(agent, agents, workspaceSvc)) {
-          log(ctx, `session ${agent.session?.id}: not the latest workspace session; skip`)
-          return
-        }
-        ensureForAgent(agent).catch((error) => log(ctx, `agent/created error: ${error?.message || error}`))
-      })
-    } catch { /* ignore */ }
-
-    for (const agent of startupTargets(agents, workspaceSvc)) await ensureForAgent(agent)
-  } catch (error) {
-    log(ctx, `apply failed: ${error?.message || error}`)
+    if (wish.search) {
+      lines.push('- id: session-query-sqlite')
+      lines.push('  config:')
+      lines.push("    path: !!js dshHomePath('storages') + '/session-search.db'")
+      lines.push('    openAt: first-search')
+    }
+    return lines.join('\n')
   }
+
+  async function configStatus() {
+    const featureCfg = await readJson(DIR + '/config.json')
+    let settingsList = []
+    if (settingsSvc && typeof settingsSvc.describe === 'function') {
+      try {
+        const desc = settingsSvc.describe()
+        const list = Array.isArray(desc) ? desc : []
+        for (const item of list) {
+          const ns = item.namespace || item.ns || item.name
+          if (!ns) continue
+          let value = null
+          try { value = safeValue(settingsSvc.get(ns), 0) } catch { /* ignore */ }
+          settingsList.push({ ns, value })
+        }
+      } catch { /* ignore */ }
+    }
+    const out = {
+      sandbox: null,
+      model: null,
+      workspaces: [],
+      settings: settingsList,
+      featureCfg,
+      mcpServers: mcpServers.map((server) => ({ ...server })),
+      wish: { ...wish },
+      patch: generatePatch(),
+      env: [
+        ['DSH_HOME', 'Harness 主目录（配置/profiles/sessions 所在）'],
+        ['DSH_PERMISSION_MODE', '沙箱模式：read-only / workspace-write / danger-full-access'],
+        ['DSH_TELEMETRY_MODE', '遥测：FULL / FEEDBACK_ONLY（默认关闭）'],
+        ['DSH_TELEMETRY_OTLP_URL', '遥测上报端点（默认 https://harness-telemetry.deepseeksvc.com/v1/logs）'],
+        ['DSH_TOOLS_MODE', '工具呈现：native / code / both'],
+        ['DSH_WEB_URL / DSH_WEB_MODE', 'Web 启动后注入模型 shell 的地址/模式变量'],
+      ],
+    }
+    if (sandboxPolicy) {
+      try { out.sandbox = { defaultMode: sandboxPolicy.defaultMode, workspaceRoot: sandboxPolicy.workspaceRoot } } catch { /* ignore */ }
+    }
+    if (agentDefaultModel && typeof agentDefaultModel.currentSelection === 'function') {
+      try { out.model = agentDefaultModel.currentSelection() } catch { /* ignore */ }
+    }
+    if (wr && typeof wr.list === 'function') {
+      try { out.workspaces = wr.list().map((workspace) => ({ id: workspace.id, path: workspace.path, title: workspace.title })) } catch { /* ignore */ }
+    }
+    return out
+  }
+
+  const api = {
+    status: async () => configStatus(),
+    model: async (args) => {
+      const provider = String((args && args.provider) || '').trim()
+      const model = String((args && args.model) || '').trim()
+      if (!provider || !model) return { error: 'provider 与 model 不能为空' }
+      if (!settingsSvc) return { error: 'settings 服务不可用' }
+      try {
+        await settingsSvc.update('agent-default-model', { provider, model })
+        return { ok: true }
+      } catch (error) { return { error: '更新失败：' + String((error && error.message) || error) + '（可手动编辑 settings.yaml 的 agent-default-model 段）' } }
+    },
+    providers: async (args) => {
+      const providers = Array.isArray(args && args.providers) ? args.providers : []
+      if (!settingsSvc) return { error: 'settings 服务不可用' }
+      try {
+        await settingsSvc.update('llm-pi-ai', { providers })
+        return { ok: true }
+      } catch (error) { return { error: '更新失败：' + String((error && error.message) || error) + '（可手动编辑 settings.yaml 的 llm-pi-ai 段）' } }
+    },
+    'mcp/list': async () => mcpServers.map((server) => ({ ...server })),
+    'mcp/save': async (args) => {
+      const server = (args && args.server) || {}
+      if (!server.serverName || !String(server.serverName).trim()) return { error: 'serverName 必填' }
+      server.serverName = String(server.serverName).trim()
+      if (server.transport !== 'stdio') server.transport = 'streamable-http'
+      const index = mcpServers.findIndex((item) => item.serverName === server.serverName)
+      if (index >= 0) mcpServers[index] = server
+      else mcpServers.push(server)
+      await writeJson(DIR + '/config.json', { mcpServers, wish })
+      return mcpServers.map((item) => ({ ...item }))
+    },
+    'mcp/delete': async (args) => {
+      mcpServers = mcpServers.filter((item) => item.serverName !== (args && args.serverName))
+      await writeJson(DIR + '/config.json', { mcpServers, wish })
+      return mcpServers.map((item) => ({ ...item }))
+    },
+    wish: async (args) => {
+      if (typeof (args && args.search) === 'boolean') wish.search = args.search
+      if (typeof (args && args.schedule) === 'boolean') wish.schedule = args.schedule
+      await writeJson(DIR + '/config.json', { mcpServers, wish })
+      return { ...wish, patch: generatePatch() }
+    },
+    patch: async () => generatePatch(),
+  }
+
+  ctx.inject(['webServer'], (hostCtx) => {
+    hostCtx.effect(() => {
+      const routes = [
+        ['/dsh-better-config/status', api.status],
+        ['/dsh-better-config/model', api.model],
+        ['/dsh-better-config/providers', api.providers],
+        ['/dsh-better-config/mcp/list', api['mcp/list']],
+        ['/dsh-better-config/mcp/save', api['mcp/save']],
+        ['/dsh-better-config/mcp/delete', api['mcp/delete']],
+        ['/dsh-better-config/wish', api.wish],
+        ['/dsh-better-config/patch', api.patch],
+      ]
+      const disposers = []
+      for (const [path, handler] of routes) {
+        const dispose = hostCtx.webServer.register({
+          kind: 'exact',
+          path,
+          handler: async (request, response) => {
+            if (request.method !== 'POST') {
+              response.writeHead(405, { allow: 'POST' })
+              response.end()
+              return
+            }
+            if (!sameOrigin(request)) {
+              sendJson(response, 403, { error: 'untrusted origin' })
+              return
+            }
+            try {
+              const args = await readJsonBody(request)
+              sendJson(response, 200, await handler(args))
+            } catch (error) {
+              sendJson(response, 500, { error: String((error && error.message) || error) })
+            }
+          },
+        })
+        disposers.push(dispose)
+      }
+      return () => { for (const dispose of disposers) { try { dispose() } catch { /* ignore */ } } }
+    }, 'dsh-better-config: http routes')
+  })
 }

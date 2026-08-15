@@ -13,27 +13,30 @@
   - Agent 预设位置
 - 配置入口说明：settings.yaml（热重载）/ cordis.patch.yml（重启生效）/ .agent-presets / .dsh-features/config.json
 
-## Host RPC
+## Host RPC（HTTP JSON）
 
 | 方法 | 返回 |
 |------|------|
-| `config/status` | `{ sandbox, model, workspaces, settings, templates }` |
+| `POST /dsh-better-config/status` | `{ sandbox, model, workspaces, settings, templates, mcpServers, wish, patch }` |
+| `POST /dsh-better-config/model` | 热更新默认模型 |
+| `POST /dsh-better-config/providers` | 热更新多模型提供者 |
+| `POST /dsh-better-config/mcp/save` / `mcp/delete` | 管理 MCP 服务器 |
+| `POST /dsh-better-config/wish` | 能力开关 |
+| `POST /dsh-better-config/patch` | 生成补丁 |
 
-## 安装与自动启动（bundle 插件）
+## 安装（原生 bundle，与 dshmarket 同类）
 
-本插件已打包为标准 DSH bundle：安装后随 DSH 进程启动自动注册并激活，无需 `cordis_define`，也无需配置 `plugin-autostart.json`。
+本插件是标准 DSH bundle：安装后作为普通插件运行，**不产生 Cordis 动态插件、无需批准、无需任何手动激活**。
 
 ```bash
-# 发布到 npm 后（推荐，他人安装同样用这条）：
 dsh plugin --profile web add dsh-better-config
-# 本地目录测试：
-dsh plugin --profile web add <本目录>
 ```
 
-然后重启 `dsh web`：
+重启 `dsh web` 后：
 
-- host 半部由插件自身自动定义并运行（统一 id 前缀 `qbcfg`，如 `qbcfg-1`）；
-- 浏览器页面启动时自动 reconcile 并加载 client 半部（首次安装已预授权，无需再点批准、无需进入设置页）。
+- 设置页“配置中心”直接挂载；
+- 配置读写走 HTTP JSON 接口；
+- 不出现 `qbcfg-*`，也没有 `run-*` 消息。
 
 ## 仓库
 
