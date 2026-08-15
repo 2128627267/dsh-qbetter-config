@@ -1,5 +1,7 @@
 // dsh-qbetter-config — native DSH bundle host half.
 // Standard Cordis plugin: config hub HTTP JSON endpoints.
+import { join } from 'node:path'
+
 export const name = 'dsh-qbetter-config'
 export const inject = []
 
@@ -82,7 +84,7 @@ export async function apply(ctx) {
   }
 
   async function loadAll() {
-    const saved = await readJson(DIR + '/config.json')
+    const saved = await readJson(join(DIR, 'config.json'))
     if (saved && typeof saved === 'object') {
       if (Array.isArray(saved.mcpServers)) mcpServers = saved.mcpServers
       if (saved.wish && typeof saved.wish === 'object') wish = Object.assign(wish, saved.wish)
@@ -115,7 +117,11 @@ export async function apply(ctx) {
         lines.push('        transport: streamable-http')
         lines.push('        url: ' + yamlStr(server.url || 'https://example.com/mcp'))
         if (server.headers) {
-          try { lines.push('        headers: ' + JSON.stringify(JSON.parse(server.headers))) } catch { /* ignore */ }
+          let headers = server.headers
+          if (typeof headers === 'string') {
+            try { headers = JSON.parse(headers) } catch { headers = null }
+          }
+          if (headers && typeof headers === 'object' && !Array.isArray(headers)) lines.push('        headers: ' + JSON.stringify(headers))
         }
       }
     }
@@ -129,7 +135,7 @@ export async function apply(ctx) {
   }
 
   async function configStatus() {
-    const featureCfg = await readJson(DIR + '/config.json')
+    const featureCfg = await readJson(join(DIR, 'config.json'))
     let settingsList = []
     if (settingsSvc && typeof settingsSvc.describe === 'function') {
       try {
@@ -196,25 +202,39 @@ export async function apply(ctx) {
     },
     'mcp/list': async () => mcpServers.map((server) => ({ ...server })),
     'mcp/save': async (args) => {
-      const server = (args && args.server) || {}
-      if (!server.serverName || !String(server.serverName).trim()) return { error: 'serverName 必填' }
-      server.serverName = String(server.serverName).trim()
-      if (server.transport !== 'stdio') server.transport = 'streamable-http'
-      const index = mcpServers.findIndex((item) => item.serverName === server.serverName)
+      const raw = (args && args.server) || {}
+      const serverName = String(raw.serverName || '').trim()
+      if (!serverName) return { error: 'serverName 必填' }
+      const transport = raw.transport === 'stdio' ? 'stdio' : 'streamable-http'
+      let headers = raw.headers
+      if (typeof headers === 'string' && headers.trim()) {
+        try { headers = JSON.parse(headers) } catch { return { error: 'headers 必须是合法 JSON 对象' } }
+      }
+      if (headers !== undefined && headers !== null && (typeof headers !== 'object' || Array.isArray(headers))) return { error: 'headers 必须是 JSON 对象' }
+      const server = {
+        serverName,
+        transport,
+        command: transport === 'stdio' ? String(raw.command || 'npx').trim() : undefined,
+        args: transport === 'stdio' ? String(raw.args || '').trim() : undefined,
+        url: transport === 'streamable-http' ? String(raw.url || '').trim() : undefined,
+        headers: headers || undefined,
+      }
+      if (transport === 'streamable-http' && !/^https?:\/\//i.test(server.url || '')) return { error: 'url 必须以 http(s):// 开头' }
+      const index = mcpServers.findIndex((item) => item.serverName === serverName)
       if (index >= 0) mcpServers[index] = server
       else mcpServers.push(server)
-      await writeJson(DIR + '/config.json', { mcpServers, wish })
+      await writeJson(join(DIR, 'config.json'), { mcpServers, wish })
       return mcpServers.map((item) => ({ ...item }))
     },
     'mcp/delete': async (args) => {
       mcpServers = mcpServers.filter((item) => item.serverName !== (args && args.serverName))
-      await writeJson(DIR + '/config.json', { mcpServers, wish })
+      await writeJson(join(DIR, 'config.json'), { mcpServers, wish })
       return mcpServers.map((item) => ({ ...item }))
     },
     wish: async (args) => {
       if (typeof (args && args.search) === 'boolean') wish.search = args.search
       if (typeof (args && args.schedule) === 'boolean') wish.schedule = args.schedule
-      await writeJson(DIR + '/config.json', { mcpServers, wish })
+      await writeJson(join(DIR, 'config.json'), { mcpServers, wish })
       return { ...wish, patch: generatePatch() }
     },
     patch: async () => generatePatch(),

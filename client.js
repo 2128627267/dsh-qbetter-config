@@ -144,7 +144,11 @@ window.__ModuleLoader__.load({ id: "dsh-qbetter-config", factory: (require) => {
         if (!mcpForm.serverName.trim()) { setMsg('serverName 必填'); return }
         var result = await call('mcp/save', { server: mcpForm })
         if (result.error) setMsg('✗ ' + result.error)
-        else { setMcps(result); setMcpForm({ serverName: '', transport: 'streamable-http', command: 'npx', args: '', url: 'https://example.com/mcp', headers: '' }) }
+        else {
+          setMcps(result)
+          setMcpForm({ serverName: '', transport: 'streamable-http', command: 'npx', args: '', url: 'https://example.com/mcp', headers: '' })
+          setMsg('✓ 已保存 MCP 服务器「' + mcpForm.serverName.trim() + '」（重启后生效）')
+        }
         var status = await call('status')
         if (status.patch) setPatch(status.patch)
       }
