@@ -1,11 +1,27 @@
 {
   "name": "dsh-better-config",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Better config hub for DeepSeek Harness: one page showing sandbox mode, default model, workspaces, settings namespaces and copy-ready composition templates.",
-  "main": "host.js",
+  "main": "index.js",
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "dynamic": {
+      "idPrefix": "bcfg",
+      "purpose": "Better config hub for DeepSeek Harness: one page showing sandbox mode, default model, workspaces, settings namespaces and copy-ready composition templates.",
+      "host": "host.js",
+      "client": "client.js"
+    },
     "client": {
-      "platform": "web"
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-cordis-client-runner",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
     }
   },
   "license": "MIT",
@@ -29,8 +45,17 @@
     "node": ">=18"
   },
   "files": [
+    "index.js",
+    "cordis.patch.yml",
     "host.js",
     "client.js",
+    "client-loader.js",
     "README.md"
-  ]
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./client": "./client-loader.js"
+  }
 }

@@ -1,0 +1,4 @@
+# dsh-better-config bundle patch — registers the self-restoring bundle row.
+- insert:
+    - id: dsh-better-config
+      name: 'dsh-better-config'
