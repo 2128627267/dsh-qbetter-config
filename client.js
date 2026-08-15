@@ -1,31 +1,31 @@
-// dsh-better-config — native DSH bundle client half (classic __ModuleLoader__ bundle).
-window.__ModuleLoader__.load({ id: "dsh-better-config", factory: (require) => {
+// dsh-qbetter-config — native DSH bundle client half (classic __ModuleLoader__ bundle).
+window.__ModuleLoader__.load({ id: "dsh-qbetter-config", factory: (require) => {
   var module = { exports: {} }
   var exports = module.exports
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" })
 
   var React = require("react")
-  var name = "dsh-better-config"
+  var name = "dsh-qbetter-config"
   var inject = ["slots"]
 
   function injectStyles(ctx, css) {
     try {
       var style = document.createElement("style")
-      style.setAttribute("data-plugin", "dsh-better-config")
+      style.setAttribute("data-plugin", "dsh-qbetter-config")
       style.textContent = css
       document.head.appendChild(style)
       var cleanup = function () {
         try { if (style.parentNode) style.parentNode.removeChild(style) } catch (ignore) { /* ignore */ }
       }
       if (ctx && typeof ctx.effect === "function") {
-        try { ctx.effect(function () { return cleanup }, "dsh-better-config: styles") } catch (ignore) { /* ignore */ }
+        try { ctx.effect(function () { return cleanup }, "dsh-qbetter-config: styles") } catch (ignore) { /* ignore */ }
       }
       return cleanup
     } catch (ignore) { return function () {} }
   }
 
   function callApi(method, args) {
-    return fetch("/dsh-better-config/" + method, {
+    return fetch("/dsh-qbetter-config/" + method, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(args || {})
@@ -236,7 +236,7 @@ window.__ModuleLoader__.load({ id: "dsh-better-config", factory: (require) => {
     }
 
     slots.inject('settings.section', function () {
-      return slots.register({ name: 'settings.section', id: 'dsh-better-config', order: 90, label: function () { return '配置中心' } }, function () { return el(BetterConfigPage) })
+      return slots.register({ name: 'settings.section', id: 'dsh-qbetter-config', order: 90, label: function () { return '配置中心' } }, function () { return el(BetterConfigPage) })
     })
   }
 

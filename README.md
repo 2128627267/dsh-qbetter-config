@@ -1,4 +1,4 @@
-# dsh-better-config 更好的配置
+# dsh-qbetter-config 更好的配置
 
 为 DeepSeek Harness 增加"更好的配置"设置页——集中展示所有可配置项与配置入口，让每个能力都有"更高自由度"的配置路径：
 
@@ -17,19 +17,19 @@
 
 | 方法 | 返回 |
 |------|------|
-| `POST /dsh-better-config/status` | `{ sandbox, model, workspaces, settings, templates, mcpServers, wish, patch }` |
-| `POST /dsh-better-config/model` | 热更新默认模型 |
-| `POST /dsh-better-config/providers` | 热更新多模型提供者 |
-| `POST /dsh-better-config/mcp/save` / `mcp/delete` | 管理 MCP 服务器 |
-| `POST /dsh-better-config/wish` | 能力开关 |
-| `POST /dsh-better-config/patch` | 生成补丁 |
+| `POST /dsh-qbetter-config/status` | `{ sandbox, model, workspaces, settings, templates, mcpServers, wish, patch }` |
+| `POST /dsh-qbetter-config/model` | 热更新默认模型 |
+| `POST /dsh-qbetter-config/providers` | 热更新多模型提供者 |
+| `POST /dsh-qbetter-config/mcp/save` / `mcp/delete` | 管理 MCP 服务器 |
+| `POST /dsh-qbetter-config/wish` | 能力开关 |
+| `POST /dsh-qbetter-config/patch` | 生成补丁 |
 
 ## 安装（原生 bundle，与 dshmarket 同类）
 
 本插件是标准 DSH bundle：安装后作为普通插件运行，**不产生 Cordis 动态插件、无需批准、无需任何手动激活**。
 
 ```bash
-dsh plugin --profile web add dsh-better-config
+dsh plugin --profile web add dsh-qbetter-config
 ```
 
 重启 `dsh web` 后：
@@ -40,7 +40,7 @@ dsh plugin --profile web add dsh-better-config
 
 ## 仓库
 
-- GitHub：https://github.com/2128627267/dsh-qbcfg
+- GitHub：https://github.com/2128627267/dsh-qbetter-config
 - Topic：`dsh-plugin`（发布时请在仓库设置里添加该 topic）
 
 ---

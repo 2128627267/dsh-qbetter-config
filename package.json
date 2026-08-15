@@ -1,5 +1,5 @@
 {
-  "name": "dsh-better-config",
+  "name": "dsh-qbetter-config",
   "version": "2.0.0",
   "description": "Better config hub for DeepSeek Harness: one page showing sandbox mode, default model, workspaces, settings namespaces and copy-ready composition templates.",
   "type": "module",
@@ -22,11 +22,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/2128627267/dsh-qbcfg.git"
+    "url": "https://github.com/2128627267/dsh-qbetter-config.git"
   },
-  "homepage": "https://github.com/2128627267/dsh-qbcfg#readme",
+  "homepage": "https://github.com/2128627267/dsh-qbetter-config#readme",
   "bugs": {
-    "url": "https://github.com/2128627267/dsh-qbcfg/issues"
+    "url": "https://github.com/2128627267/dsh-qbetter-config/issues"
   },
   "engines": {
     "node": ">=18"

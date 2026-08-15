@@ -1,6 +1,6 @@
-// dsh-better-config — native DSH bundle host half.
+// dsh-qbetter-config — native DSH bundle host half.
 // Standard Cordis plugin: config hub HTTP JSON endpoints.
-export const name = 'dsh-better-config'
+export const name = 'dsh-qbetter-config'
 export const inject = []
 
 const DIR = '.dsh-features'
@@ -96,7 +96,7 @@ export async function apply(ctx) {
   }
 
   function generatePatch() {
-    const lines = ['# 由 dsh-better-config 生成的组合补丁（贴入 profiles/web/cordis.patch.yml，重启生效）', '- insert:']
+    const lines = ['# 由 dsh-qbetter-config 生成的组合补丁（贴入 profiles/web/cordis.patch.yml，重启生效）', '- insert:']
     if (wish.schedule) {
       lines.push("    - id: schedule")
       lines.push("      name: '@deepseek-ai/dsh-schedule'")
@@ -223,14 +223,14 @@ export async function apply(ctx) {
   ctx.inject(['webServer'], (hostCtx) => {
     hostCtx.effect(() => {
       const routes = [
-        ['/dsh-better-config/status', api.status],
-        ['/dsh-better-config/model', api.model],
-        ['/dsh-better-config/providers', api.providers],
-        ['/dsh-better-config/mcp/list', api['mcp/list']],
-        ['/dsh-better-config/mcp/save', api['mcp/save']],
-        ['/dsh-better-config/mcp/delete', api['mcp/delete']],
-        ['/dsh-better-config/wish', api.wish],
-        ['/dsh-better-config/patch', api.patch],
+        ['/dsh-qbetter-config/status', api.status],
+        ['/dsh-qbetter-config/model', api.model],
+        ['/dsh-qbetter-config/providers', api.providers],
+        ['/dsh-qbetter-config/mcp/list', api['mcp/list']],
+        ['/dsh-qbetter-config/mcp/save', api['mcp/save']],
+        ['/dsh-qbetter-config/mcp/delete', api['mcp/delete']],
+        ['/dsh-qbetter-config/wish', api.wish],
+        ['/dsh-qbetter-config/patch', api.patch],
       ]
       const disposers = []
       for (const [path, handler] of routes) {
@@ -258,6 +258,6 @@ export async function apply(ctx) {
         disposers.push(dispose)
       }
       return () => { for (const dispose of disposers) { try { dispose() } catch { /* ignore */ } } }
-    }, 'dsh-better-config: http routes')
+    }, 'dsh-qbetter-config: http routes')
   })
 }
