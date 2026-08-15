@@ -1,6 +1,6 @@
 {
   "name": "dsh-better-config",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Better config hub for DeepSeek Harness: one page showing sandbox mode, default model, workspaces, settings namespaces and copy-ready composition templates.",
   "main": "index.js",
   "dsh": {
@@ -8,7 +8,7 @@
       "patch": "./cordis.patch.yml"
     },
     "dynamic": {
-      "idPrefix": "bcfg",
+      "idPrefix": "qbcfg",
       "purpose": "Better config hub for DeepSeek Harness: one page showing sandbox mode, default model, workspaces, settings namespaces and copy-ready composition templates.",
       "host": "host.js",
       "client": "client.js"
@@ -31,15 +31,16 @@
     "dsh",
     "config",
     "settings",
-    "hub"
+    "hub",
+    "qf"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/<your-github>/dsh-better-config.git"
+    "url": "https://github.com/2128627267/dsh-qbcfg.git"
   },
-  "homepage": "https://github.com/<your-github>/dsh-better-config#readme",
+  "homepage": "https://github.com/2128627267/dsh-qbcfg#readme",
   "bugs": {
-    "url": "https://github.com/<your-github>/dsh-better-config/issues"
+    "url": "https://github.com/2128627267/dsh-qbcfg/issues"
   },
   "engines": {
     "node": ">=18"
